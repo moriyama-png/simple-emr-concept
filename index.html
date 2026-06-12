@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡易電子カルテ構想</title>
+    <title>簡易電子カルテ構想 - Phase2</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -16,6 +16,8 @@
             --border: #e2e8f0;
             --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
             --radius: 12px;
+            --success: #10b981;
+            --success-hover: #059669;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -57,15 +59,20 @@
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
         .tab-btn:hover { color: var(--text-main); background-color: #f1f5f9; border-radius: 6px 6px 0 0; }
 
-        main {
+        .tab-content {
+            display: none;
             max-width: 1600px; width: 100%; margin: 24px auto; padding: 0 24px;
-            display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 24px; flex: 1;
+            flex: 1;
         }
+        .tab-content.active { display: grid; }
+
+        #content-calendar { grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+        #content-patients { grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
 
         .panel {
             background-color: var(--bg-card); border-radius: var(--radius);
             border: 1px solid var(--border); box-shadow: var(--shadow); padding: 24px;
-            display: flex; flex-direction: column; gap: 20px; min-height: 700px;
+            display: flex; flex-direction: column; gap: 20px; min-height: 750px;
         }
 
         .panel-title {
@@ -73,102 +80,29 @@
             border-bottom: 2px solid var(--bg-main); padding-bottom: 12px;
         }
 
-        .calendar-header {
-            display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
-        }
-        .cal-btn {
-            background-color: #eff6ff; border: 1px solid var(--primary); color: var(--primary);
-            padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 14px;
-        }
+        /* 📅 カレンダー関係スタイル */
+        .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .cal-btn { background-color: #eff6ff; border: 1px solid var(--primary); color: var(--primary); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 14px; }
         .cal-btn:hover { background-color: var(--primary); color: white; }
-
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
         .weekday { font-weight: 700; color: var(--text-sub); font-size: 14px; padding: 8px 0; }
         
-        .day-cell {
-            background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-            padding: 10px; min-height: 95px; display: flex; flex-direction: column;
-            justify-content: space-between; align-items: flex-start; position: relative; transition: all 0.2s;
+        .day-cell { 
+            background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; 
+            padding: 10px; min-height: 95px; display: flex; flex-direction: column; 
+            justify-content: space-between; align-items: flex-start; position: relative; 
+            transition: all 0.2s; cursor: pointer; 
         }
         .day-cell:not(.empty):hover { border-color: var(--primary); background-color: #f8fafc; }
         .day-cell.selected { border: 2px solid var(--primary) !important; background-color: #f0f7ff !important; }
-        .day-cell.empty { background: none; border: none; }
-        
-        .day-cell.has-reservation {
-            background-color: #e0f2fe;
-            border-color: #bae6fd;
-        }
-        
+        .day-cell.empty { background: none; border: none; cursor: default; }
+        .day-cell.has-reservation { background-color: #e0f2fe; border-color: #bae6fd; }
         .day-number { font-size: 16px; font-weight: 700; color: var(--text-main); }
-        
         .res-badge { font-size: 11px; color: #0369a1; font-weight: bold; margin-top: 2px; }
-        
-        .cell-reserve-btn {
-            width: 100%; background-color: white; border: 1px solid #cbd5e1; color: var(--primary);
-            font-size: 11px; font-weight: 700; padding: 4px 2px; border-radius: 4px; cursor: pointer;
-            text-align: center; margin-top: auto; transition: all 0.1s; z-index: 2;
-        }
+        .cell-reserve-btn { width: 100%; background-color: white; border: 1px solid #cbd5e1; color: var(--primary); font-size: 11px; font-weight: 700; padding: 4px 2px; border-radius: 4px; cursor: pointer; text-align: center; margin-top: auto; z-index: 2; }
         .cell-reserve-btn:hover { background-color: var(--primary); color: white; border-color: var(--primary); }
 
-        /* モーダル（ポップアップ窓基本設定） */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
-            display: flex; align-items: center; justify-content: center; z-index: 1000;
-            opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
-        }
-        .modal-overlay.open { opacity: 1; pointer-events: auto; }
-        
-        .modal-window {
-            background-color: white; width: 500px; max-width: 90%; max-height: 90vh;
-            border-radius: 12px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-            overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;
-            animation: slideUp 0.2s ease-out;
-        }
-        @keyframes slideUp { from { transform: translateY(20px); } to { transform: translateY(0); } }
-
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-main); padding-bottom: 12px; }
-        .modal-close { background: none; border: none; font-size: 22px; color: var(--text-sub); cursor: pointer; }
-        .modal-close:hover { color: var(--text-main); }
-
-        .form-group { margin-bottom: 14px; }
-        .form-label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px; color: var(--text-main); }
-        
-        .button-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        .button-group.four-cols { grid-template-columns: repeat(4, 1fr); }
-        .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        
-        .select-btn {
-            background-color: white; border: 1px solid var(--border); border-radius: 6px;
-            padding: 10px 2px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s;
-            text-align: center;
-        }
-        .select-btn:hover { border-color: var(--primary); color: var(--primary); background-color: #eff6ff; }
-        .select-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; font-weight: 700; }
-
-        .sub-group { display: none; margin-top: 10px; padding: 12px; background-color: #f8fafc; border-radius: 6px; border: 1px dashed var(--primary); }
-        .select-menu { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background-color: white; outline: none; cursor: pointer; }
-
-        .submit-btn { width: 100%; background-color: var(--primary); color: white; border: none; border-radius: 6px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
-        .submit-btn:hover { background-color: var(--primary-hover); }
-
-        .confirm-box { background-color: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 8px; }
-        .confirm-item { margin-bottom: 8px; font-size: 14px; }
-        .confirm-item strong { color: var(--primary); }
-
-        /* 💡 自作の美しい予約確定通知用デザイン（英語アラートの代わり） */
-        .success-box {
-            text-align: center; padding: 12px 0;
-        }
-        .success-icon {
-            font-size: 48px; color: #10b981; margin-bottom: 12px;
-            animation: popCheck 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes popCheck { from { transform: scale(0); } to { transform: scale(1); } }
-        .success-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-        .success-message { font-size: 14px; color: var(--text-sub); }
-
-        /* ToDoリスト関係 */
+        /* ToDoリストデザイン */
         .todo-container { display: flex; flex-direction: column; gap: 10px; max-height: 650px; overflow-y: auto; }
         .todo-card { display: flex; align-items: center; background-color: white; border: 1px solid var(--border); border-radius: 8px; padding: 14px; gap: 14px; border-left: 5px solid var(--primary); }
         .time-badge { font-size: 13px; font-weight: 700; background-color: var(--bg-main); padding: 6px 10px; border-radius: 4px; min-width: 60px; text-align: center; }
@@ -177,6 +111,70 @@
         .todo-details { display: flex; gap: 6px; font-size: 12px; color: var(--text-sub); }
         .tag { background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
         .no-data { text-align: center; color: var(--text-sub); font-size: 14px; padding: 40px 0; }
+
+        /* 👥 患者管理スタイル */
+        .search-bar { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background-color: #f8fafc; outline: none; transition: all 0.2s; }
+        .search-bar:focus { background-color: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        .table-wrapper { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; max-height: 580px; }
+        .patient-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        .patient-table th { background-color: #f1f5f9; color: var(--text-main); font-weight: 700; padding: 12px 16px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
+        .patient-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); }
+        .patient-table tr { cursor: pointer; transition: background-color 0.15s; }
+        .patient-table tr:hover { background-color: #f0f7ff; }
+        .patient-table tr.selected-row { background-color: #e0f2fe; font-weight: 500; }
+
+        /* 右側：プロフィールカード */
+        .profile-card { background-color: #ffffff; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; gap: 20px; flex: 1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+        .profile-title-area { text-align: center; border-bottom: 2px dashed var(--border); padding-bottom: 16px; }
+        .profile-name-large { font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+        .profile-id-sub { font-size: 13px; color: var(--primary); font-weight: 700; }
+        .detail-row { display: grid; grid-template-columns: 110px 1fr; border-bottom: 1px solid #f1f5f9; padding: 12px 0; font-size: 14px; align-items: center;}
+        .detail-label { font-weight: 700; color: var(--text-sub); }
+        .detail-val { color: var(--text-main); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+        
+        .map-link-btn { display: inline-flex; align-items: center; gap: 4px; background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; transition: all 0.2s; }
+        .map-link-btn:hover { background-color: #e0f2fe; border-color: #0369a1; }
+        .action-button-group { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+        .btn-action { width: 100%; border: none; border-radius: 8px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+        .btn-reserve-send { background-color: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); }
+        .btn-reserve-send:hover { background-color: var(--primary-hover); }
+        .btn-chart-view { background-color: var(--success); color: white; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
+        .btn-chart-view:hover { background-color: var(--success-hover); }
+
+        /* モーダル・ポップアップ・時間グリッド */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-window { background-color: white; width: 520px; max-width: 90%; max-height: 92vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-main); padding-bottom: 12px; }
+        .modal-close { background: none; border: none; font-size: 22px; color: var(--text-sub); cursor: pointer; }
+        
+        .form-group { margin-bottom: 10px; }
+        .form-label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--text-main); }
+        .button-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+        .button-group.four-cols { grid-template-columns: repeat(4, 1fr); }
+        
+        /* ⏰ 30分枠用の美しい4列グリッド */
+        .time-grid-container { display: flex; flex-direction: column; gap: 12px; background-color: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid var(--border); }
+        .time-section-title { font-size: 12px; font-weight: 700; color: var(--text-sub); border-left: 3px solid var(--primary); padding-left: 6px; margin-bottom: 4px; }
+        .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        
+        .select-btn { background-color: white; border: 1px solid var(--border); border-radius: 6px; padding: 10px 2px; font-size: 13px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.15s; }
+        .select-btn:hover { border-color: var(--primary); color: var(--primary); background-color: #eff6ff; }
+        .select-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; font-weight: 700; }
+        
+        .sub-group { display: none; margin-top: 10px; padding: 12px; background-color: #f8fafc; border-radius: 6px; border: 1px dashed var(--primary); }
+        .select-menu { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background-color: white; outline: none; }
+        .submit-btn { width: 100%; background-color: var(--primary); color: white; border: none; border-radius: 6px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 4px; }
+        .submit-btn:hover { background-color: var(--primary-hover); }
+        
+        .confirm-box { background-color: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+        .confirm-item { margin-bottom: 8px; font-size: 14px; }
+        .confirm-item strong { color: var(--primary); }
+        
+        .success-box { text-align: center; padding: 12px 0; }
+        .success-icon { font-size: 48px; color: #10b981; margin-bottom: 12px; }
+        .success-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+        .success-message { font-size: 14px; color: var(--text-sub); }
     </style>
 </head>
 <body>
@@ -185,25 +183,24 @@
         <div class="nav-container">
             <div class="logo">🏥 簡易電子カルテ構想</div>
             <nav class="nav-tabs">
-                <button class="tab-btn active" onclick="tabClick('カレンダー・ToDoリスト')">📅 カレンダー・ToDoリスト</button>
-                <button class="tab-btn" onclick="tabClick('患者管理')">👥 患者管理</button>
-                <button class="tab-btn" onclick="tabClick('電子カルテ')">📑 電子カルテ</button>
-                <button class="tab-btn" onclick="tabClick('日報・月報')">📊 日報・月報</button>
+                <button class="tab-btn active" id="btn-tab-calendar" onclick="switchMainTab('calendar')">📅 カレンダー・ToDoリスト</button>
+                <button class="tab-btn" id="btn-tab-patients" onclick="switchMainTab('patients')">👥 患者管理</button>
+                <button class="tab-btn" id="btn-tab-charts" onclick="switchMainTab('charts')">📑 電子カルテ</button>
+                <button class="tab-btn" id="btn-tab-reports" onclick="switchMainTab('reports')">📊 日報・月報</button>
             </nav>
         </div>
     </header>
 
-    <main>
+    <main class="tab-content active" id="content-calendar">
         <div class="panel">
-            <div class="panel-title">📅 予約状況確認</div>
-            
+            <div class="panel-title">📅 予約状況確認・新規登録</div>
             <div class="calendar-header">
                 <div style="font-weight: 700; font-size: 18px;" id="month-title">2026年 7月 (当月)</div>
                 <button class="cal-btn" id="toggle-month-btn" onclick="switchMonth()">≫ 翌月表示 (8月)</button>
             </div>
             
             <div class="calendar-container" id="container-jul" style="display: block;">
-                <div class="calendar-grid" id="grid-jul">
+                <div class="calendar-grid">
                     <div class="weekday">月</div><div class="weekday">火</div><div class="weekday">水</div><div class="weekday">木</div><div class="weekday">金</div><div class="weekday">土</div><div class="weekday">日</div>
                     <div class="day-cell empty"></div><div class="day-cell empty"></div>
                     <script>
@@ -222,7 +219,7 @@
             </div>
 
             <div class="calendar-container" id="container-aug" style="display: none;">
-                <div class="calendar-grid" id="grid-aug">
+                <div class="calendar-grid">
                     <div class="weekday">月</div><div class="weekday">火</div><div class="weekday">水</div><div class="weekday">木</div><div class="weekday">金</div><div class="weekday">土</div><div class="weekday">日</div>
                     <div class="day-cell empty"></div><div class="day-cell empty"></div><div class="day-cell empty"></div><div class="day-cell empty"></div><div class="day-cell empty"></div>
                     <script>
@@ -246,22 +243,99 @@
         </div>
     </main>
 
+    <main class="tab-content" id="content-patients">
+        <div class="panel">
+            <div class="panel-title">👥 患者データベース</div>
+            <input type="text" class="search-bar" id="patient-search-input" placeholder="🔍 氏名・ID・住所・主病名でリアルタイム検索..." oninput="handleSearch()">
+            
+            <div class="table-wrapper">
+                <table class="patient-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">ID</th>
+                            <th style="width: 130px;">氏名</th>
+                            <th>住所</th>
+                            <th style="width: 110px;">主病名</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patient-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">📂 プロフィールカード</div>
+            
+            <div class="profile-card" id="profile-card-empty">
+                <div class="no-data" style="margin: auto;">左の名簿から患者を選択してください。</div>
+            </div>
+
+            <div class="profile-card" id="profile-card-content" style="display: none;">
+                <div class="profile-title-area">
+                    <div class="profile-name-large" id="lbl-name">-</div>
+                    <div class="profile-id-sub" id="lbl-id">ID: -</div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-label">住所</div>
+                    <div class="detail-val">
+                        <span id="lbl-address">-</span>
+                        <a href="#" class="map-link-btn" id="lbl-map-link" target="_blank">🗺️ Mapを開く</a>
+                    </div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">電話番号</div>
+                    <div class="detail-val" id="lbl-phone">-</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">担当医師</div>
+                    <div class="detail-val" id="lbl-doctor">-</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">訪問曜日</div>
+                    <div class="detail-val" id="lbl-weekday" style="font-weight: 700; color: var(--primary);">-</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">主病名</div>
+                    <div class="detail-val"><span class="tag" style="background-color:#ffe4e6; color:#9f1239; font-weight:bold;" id="lbl-disease">-</span></div>
+                </div>
+
+                <div class="action-button-group">
+                    <button class="btn-action btn-reserve-send" onclick="actionSendToReservation()">
+                        📅 この患者で予約する
+                    </button>
+                    <button class="btn-action btn-chart-view" onclick="actionGoToChart()">
+                        📄 カルテを見る（③へ）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main class="tab-content" id="content-charts" style="place-items: center; min-height: 500px;"><div class="panel" style="width:100%; justify-content:center; align-items:center;"><h3>📑 ③ 電子カルテ空間</h3><p style="color:var(--text-sub); margin-top:10px;">Phase 3で時系列ログを展開します。</p></div></main>
+    <main class="tab-content" id="content-reports" style="place-items: center; min-height: 500px;"><div class="panel" style="width:100%; justify-content:center; align-items:center;"><h3>📊 ④ 日報・月報</h3></div></main>
+
     <div class="modal-overlay" id="reserve-modal">
         <div class="modal-window">
             <div class="modal-header">
-                <div style="font-weight: 700; color: var(--primary); font-size: 16px;" id="selected-date-label">選択した日：7月1日</div>
+                <div style="font-weight: 700; color: var(--primary); font-size: 16px;">📋 新規予約データ入力</div>
                 <button class="modal-close" onclick="closeReserveModal()">×</button>
             </div>
             
             <div class="form-group">
-                <label class="form-label">① 患者様を選択 (スプレッドシート連動)</label>
-                <select class="select-menu" id="patient-select">
-                    <option value="">-- 患者データを読み込み中... --</option>
-                </select>
+                <label class="form-label">① 希望日を選択</label>
+                <select class="select-menu" id="date-select" onchange="handleModalDateChange(this.value)">
+                    </select>
             </div>
 
             <div class="form-group">
-                <label class="form-label">② 依頼部署を選択</label>
+                <label class="form-label">② 患者様を選択</label>
+                <select class="select-menu" id="patient-select"></select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">③ 依頼部署を選択</label>
                 <div class="button-group">
                     <button class="select-btn dept-opt" onclick="clickDept(this, '外来')">外来</button>
                     <button class="select-btn dept-opt" onclick="clickDept(this, '病棟')">病棟</button>
@@ -270,9 +344,9 @@
                     <button class="select-btn dept-opt" onclick="clickDept(this, 'その他')">その他</button>
                 </div>
             </div>
-
+            
             <div class="form-group">
-                <label class="form-label">③ 検査内容を選択</label>
+                <label class="form-label">④ 検査内容を選択</label>
                 <div class="button-group four-cols">
                     <button class="select-btn test-opt" onclick="clickTest(this, 'CT')">CT</button>
                     <button class="select-btn test-opt" onclick="clickTest(this, 'XRAY')">胸部ﾚﾝﾄｹﾝ</button>
@@ -280,81 +354,56 @@
                     <button class="select-btn test-opt" onclick="clickTest(this, 'BONE')">骨密度</button>
                 </div>
             </div>
-
-            <div class="sub-group" id="tree-CT">
-                <label class="form-label">④ 検査区分詳細（CT）</label>
-                <div class="button-group four-cols">
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">胸部</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">腹部</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">頭部</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">その他</button>
-                </div>
-            </div>
-            <div class="sub-group" id="tree-XRAY">
-                <label class="form-label">④ 検査区分詳細（胸部レントゲン）</label>
-                <div class="button-group" style="grid-template-columns: repeat(2, 1fr); gap: 6px;">
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">職員健診</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">企業健診</button>
-                </div>
-            </div>
-            <div class="sub-group" id="tree-ECHO">
-                <label class="form-label">④ 検査区分詳細（エコー）</label>
-                <div class="button-group" style="grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">心臓</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">腹部</button>
-                    <button class="select-btn detail-opt" onclick="clickDetail(this)">その他</button>
-                </div>
-            </div>
+            
+            <div class="sub-group" id="tree-CT"><label class="form-label">⑤ 詳細（CT）</label><div class="button-group four-cols"><button class="select-btn detail-opt" onclick="clickDetail(this)">胸部</button><button class="select-btn detail-opt" onclick="clickDetail(this)">腹部</button><button class="select-btn detail-opt" onclick="clickDetail(this)">頭部</button><button class="select-btn detail-opt" onclick="clickDetail(this)">その他</button></div></div>
+            <div class="sub-group" id="tree-XRAY"><label class="form-label">⑤ 詳細（レントゲン）</label><div class="button-group" style="grid-template-columns: repeat(2, 1fr); gap: 6px;"><button class="select-btn detail-opt" onclick="clickDetail(this)">職員健診</button><button class="select-btn detail-opt" onclick="clickDetail(this)">企業健診</button></div></div>
+            <div class="sub-group" id="tree-ECHO"><label class="form-label">⑤ 詳細（エコー）</label><div class="button-group" style="grid-template-columns: repeat(3, 1fr); gap: 6px;"><button class="select-btn detail-opt" onclick="clickDetail(this)">心臓</button><button class="select-btn detail-opt" onclick="clickDetail(this)">腹部</button><button class="select-btn detail-opt" onclick="clickDetail(this)">その他</button></div></div>
 
             <div class="form-group" style="margin-top: 8px;">
-                <label class="form-label">⑤ 希望時間を選択 (30分1枠)</label>
-                
-                <div style="font-size: 11px; font-weight: bold; color: var(--text-sub); margin-bottom: 4px;">午前 (09:00 - 12:00)</div>
-                <div class="time-grid">
-                    <button class="select-btn time-opt" onclick="clickTime(this)">09:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">09:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">10:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">10:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">11:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">11:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">12:00</button>
-                </div>
-                
-                <div style="font-size: 11px; font-weight: bold; color: var(--text-sub) ; margin: 8px 0 4px 0;">午後 前半 (13:00 - 15:30)</div>
-                <div class="time-grid">
-                    <button class="select-btn time-opt" onclick="clickTime(this)">13:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">13:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">14:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">14:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">15:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">15:30</button>
-                </div>
-                
-                <div style="font-size: 11px; font-weight: bold; color: var(--text-sub); margin: 8px 0 4px 0;">午後 後半 (16:00 - 18:30)</div>
-                <div class="time-grid">
-                    <button class="select-btn time-opt" onclick="clickTime(this)">16:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">16:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">17:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">17:30</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">18:00</button>
-                    <button class="select-btn time-opt" onclick="clickTime(this)">18:30</button>
+                <label class="form-label">⑥ 希望時間を選択 (30分1枠)</label>
+                <div class="time-grid-container">
+                    
+                    <div class="time-section-title">午前 (09:00 - 12:00)</div>
+                    <div class="time-grid" style="margin-bottom: 8px;">
+                        <button class="select-btn time-opt" onclick="clickTime(this)">09:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">09:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">10:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">10:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">11:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">11:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">12:00</button>
+                    </div>
+
+                    <div class="time-section-title">午後 前半 (13:00 - 15:30)</div>
+                    <div class="time-grid" style="margin-bottom: 8px;">
+                        <button class="select-btn time-opt" onclick="clickTime(this)">13:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">13:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">14:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">14:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">15:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">15:30</button>
+                    </div>
+
+                    <div class="time-section-title">午後 後半 (16:00 - 18:30)</div>
+                    <div class="time-grid">
+                        <button class="select-btn time-opt" onclick="clickTime(this)">16:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">16:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">17:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">17:30</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">18:00</button>
+                        <button class="select-btn time-opt" onclick="clickTime(this)">18:30</button>
+                    </div>
+
                 </div>
             </div>
-
             <button class="submit-btn" onclick="tryOpenConfirmModal()">この内容で予約票を確定する</button>
         </div>
     </div>
 
     <div class="modal-overlay" id="confirm-modal" style="z-index: 1100;">
         <div class="modal-window" style="width: 420px;">
-            <div class="modal-header">
-                <div style="font-weight: 700; font-size: 16px; color: #0f172a;">🤔 予約内容の確認</div>
-                <button class="modal-close" onclick="closeConfirmModal()">×</button>
-            </div>
-            <div style="font-size: 14px; color: var(--text-sub);">この内容で予約してもよろしいでしょうか？</div>
-            
+            <div class="modal-header"><div style="font-weight: 700; font-size: 16px;">🤔 予約内容の確認</div><button class="modal-close" onclick="closeConfirmModal()">×</button></div>
             <div class="confirm-box" id="confirm-content-area"></div>
-
             <div style="display: flex; gap: 10px; margin-top: 8px;">
                 <button class="submit-btn" style="background-color: #cbd5e1; color: #334155;" onclick="closeConfirmModal()">戻る</button>
                 <button class="submit-btn" onclick="executeAddTodo()">OK（確定）</button>
@@ -366,100 +415,192 @@
         <div class="modal-window" style="width: 380px; text-align: center;">
             <div class="success-box">
                 <div class="success-icon">🎉</div>
-                <div class="success-title" id="success-title-text">予約を確約しました！</div>
-                <div class="success-message" id="success-msg-text">7月1日 のスケジュールに追加されました。</div>
+                <div class="success-title">予約を確約しました！</div>
+                <div class="success-message" id="success-msg-text"></div>
             </div>
             <button class="submit-btn" style="margin-top: 12px;" onclick="closeSuccessModal()">OK</button>
         </div>
     </div>
 
     <script>
-        // デモデータベース
+        let patientMaster = [];
+
+        // カレンダー表示用のデータ構造
         const demoDatabase = {
             "7月1日": [
-                { time: "09:00", name: "山田 太郎 様 (ID: 1001)", dept: "外来", test: "CT", detail: "胸部" },
-                { time: "09:30", name: "佐藤 花子 様 (ID: 1002)", dept: "外来", test: "CT", detail: "腹部" },
+                { time: "09:00", name: "大島 太郎 様 (ID: 1001)", dept: "外来", test: "CT", detail: "胸部" },
+                { time: "09:30", name: "佐藤 花子 様 (ID: 2001)", dept: "外来", test: "CT", detail: "腹部" },
                 { time: "10:30", name: "佐藤 花子 様 (ID: 1002)", dept: "病棟", test: "エコー", detail: "心臓" }
-            ],
-            "7月9日": [
-                { time: "09:00", name: "田中 恵子 様 (ID: 1005)", dept: "外来", test: "CT", detail: "頭部" },
-                { time: "13:30", name: "佐藤 花子 様 (ID: 1002)", dept: "病棟", test: "CT", detail: "胸部" },
-                { time: "16:30", name: "鈴木 一郎 様 (ID: 1003)", dept: "医事課", test: "胸部ﾚﾝﾄｹﾝ", detail: "企業健診" }
-            ],
-            "8月1日": [
-                { time: "11:00", name: "渡辺 隆 様 (ID: 1006)", dept: "外来", test: "骨密度", detail: "（詳細なし）" }
             ]
         };
 
         let selectedDate = "7月1日";
-        let selectedDept = "";
-        let selectedTest = "";
-        let selectedDetail = "";
-        let selectedTime = "";
+        let selectedDept = ""; let selectedTest = ""; let selectedDetail = ""; let selectedTime = "";
         let currentMonth = 7;
+        let activePatient = null; 
 
         window.onload = function() {
-            refreshCalendarStyles();
-            renderTodoList("7月1日");
-            loadPatientMaster(); 
+            buildDateSelectDropdown(); // モーダル内の日付選択リストを自動生成
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(function(data) {
+                        patientMaster = data;
+                        initApp();
+                    })
+                    .withFailureHandler(function(err) {
+                        alert("データ読み込みに失敗: " + err.message);
+                    })
+                    .getPatientMasterData();
+            } else {
+                patientMaster = [
+                    { id: "1001", name: "山田 太郎", address: "堺市中区深井沢町", phone: "090-1111-1111", disease: "高血圧", doctor: "山田医師", weekday: "月" },
+                    { id: "1002", name: "佐藤 花子", address: "堺市北区百舌鳥梅町", phone: "090-2222-2222", disease: "心不全", doctor: "田中医師", weekday: "火" },
+                    { id: "1003", name: "鈴木 一郎", address: "大阪市住吉区長居東", phone: "090-3333-3333", disease: "糖尿病", doctor: "山本医師", weekday: "水" }
+                ];
+                initApp();
+            }
         };
 
-        function refreshCalendarStyles() {
-            document.querySelectorAll('.day-cell').forEach(cell => {
-                cell.classList.remove('has-reservation');
-            });
-            document.querySelectorAll('.res-badge').forEach(badge => {
-                badge.innerText = '';
-            });
+        function initApp() {
+            buildPatientTable(patientMaster); 
+            buildPatientSelectDropdown();     
+            refreshCalendarStyles();
+            renderTodoList(selectedDate);
+        }
 
+        // 📅 モーダル内の日付選択ドロップダウンメニューを自動作成する
+        function buildDateSelectDropdown() {
+            const dateSelect = document.getElementById('date-select');
+            dateSelect.innerHTML = "";
+            // 7月分
+            for(let d=1; d<=31; d++) {
+                let opt = document.createElement('option');
+                opt.value = `7月${d}日`; opt.innerText = `2026年 7月${d}日`;
+                dateSelect.appendChild(opt);
+            }
+            // 8月分
+            for(let d=1; d<=31; d++) {
+                let opt = document.createElement('option');
+                opt.value = `8月${d}日`; opt.innerText = `2026年 8月${d}日`;
+                dateSelect.appendChild(opt);
+            }
+        }
+
+        // モーダル内の日付が変わったらシステム側の変数も同期させる
+        function handleModalDateChange(val) {
+            selectedDate = val;
+            
+            // カレンダー上の見た目の選択枠も裏側で移動させておく親切設計
+            const targetCell = document.getElementById('cell-' + val);
+            if(targetCell) {
+                document.querySelectorAll('.day-cell').forEach(cell => cell.classList.remove('selected'));
+                targetCell.classList.add('selected');
+            }
+            document.getElementById('todo-title-label').innerText = "📋 " + selectedDate + " のToDoスケジュール";
+            renderTodoList(selectedDate);
+        }
+
+        function switchMainTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('btn-tab-' + tabId).classList.add('active');
+            document.getElementById('content-' + tabId).classList.add('active');
+        }
+
+        function buildPatientTable(data) {
+            const tbody = document.getElementById('patient-table-body');
+            tbody.innerHTML = "";
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-sub);">該当患者なし</td></tr>`;
+                return;
+            }
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.id = "row-" + p.id;
+                tr.innerHTML = `
+                    <td style="font-weight:700; color:var(--primary);">${p.id}</td>
+                    <td><strong>${p.name}</strong></td>
+                    <td style="color:var(--text-sub); font-size:13px;">${p.address}</td>
+                    <td>${p.disease}</td>
+                `;
+                tr.onclick = function() { selectPatientRow(p); };
+                tbody.appendChild(tr);
+            });
+        }
+
+        function selectPatientRow(patient) {
+            document.querySelectorAll('.patient-table tr').forEach(r => r.classList.remove('selected-row'));
+            const targetRow = document.getElementById("row-" + patient.id);
+            if(targetRow) targetRow.classList.add('selected-row');
+
+            activePatient = patient;
+
+            document.getElementById('profile-card-empty').style.display = 'none';
+            document.getElementById('profile-card-content').style.display = 'flex';
+
+            document.getElementById('lbl-name').innerText = patient.name + " 様";
+            document.getElementById('lbl-id').innerText = "ID: " + patient.id;
+            document.getElementById('lbl-address').innerText = patient.address;
+            document.getElementById('lbl-phone').innerText = patient.phone;
+            document.getElementById('lbl-doctor').innerText = patient.doctor;
+            document.getElementById('lbl-weekday').innerText = patient.weekday + "曜日";
+            document.getElementById('lbl-disease').innerText = patient.disease;
+            
+            document.getElementById('lbl-map-link').href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(patient.address);
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('patient-search-input').value.toLowerCase().trim();
+            if(!query) { buildPatientTable(patientMaster); return; }
+            const filtered = patientMaster.filter(p => {
+                return p.id.includes(query) || p.name.includes(query) || p.address.includes(query) || p.disease.includes(query);
+            });
+            buildPatientTable(filtered);
+        }
+
+        // ✨ 改良：患者管理から飛ぶ時は、日付セレクトを有効化して、日付をその場で自由に選べるようにポップアップ
+        function actionSendToReservation() {
+            if(!activePatient) return;
+            
+            // 患者名をセットロック
+            document.getElementById('patient-select').value = `${activePatient.name} 様 (ID: ${activePatient.id})`;
+            
+            // ドロップダウンの日付を現在の選択日に初期セット
+            document.getElementById('date-select').value = selectedDate;
+            
+            // カレンダー画面に切り替えて、モーダルを開く
+            switchMainTab('calendar');
+            document.getElementById('reserve-modal').classList.add('open');
+        }
+
+        function actionGoToChart() {
+            if(!activePatient) return;
+            switchMainTab('charts');
+        }
+
+        function buildPatientSelectDropdown() {
+            const select = document.getElementById('patient-select');
+            select.innerHTML = '<option value="">-- 患者を選択してください --</option>';
+            patientMaster.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = `${p.name} 様 (ID: ${p.id})`;
+                opt.innerText = `${p.id} : ${p.name} 様`;
+                select.appendChild(opt);
+            });
+        }
+
+        function refreshCalendarStyles() {
+            document.querySelectorAll('.day-cell').forEach(cell => cell.classList.remove('has-reservation'));
+            document.querySelectorAll('.res-badge').forEach(badge => badge.innerText = '');
             Object.keys(demoDatabase).forEach(dateKey => {
                 if (demoDatabase[dateKey] && demoDatabase[dateKey].length > 0) {
                     const cell = document.getElementById('cell-' + dateKey);
                     const badge = document.getElementById('badge-' + dateKey);
-                    if (cell) {
-                        cell.classList.add('has-reservation');
-                    }
-                    if (badge) {
-                        badge.innerText = '● 予約あり';
-                    }
+                    if (cell) cell.classList.add('has-reservation');
+                    if (badge) badge.innerText = '● 予約あり';
                 }
             });
-        }
-
-        function loadPatientMaster() {
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler(function(patients) {
-                        const select = document.getElementById('patient-select');
-                        select.innerHTML = '<option value="">-- 患者を選択してください --</option>';
-                        if(patients.length === 0) {
-                            select.innerHTML = '<option value="">データが取得できませんでした</option>';
-                            return;
-                        }
-                        patients.forEach(p => {
-                            const opt = document.createElement('option');
-                            opt.value = `${p.name} 様 (ID: ${p.id})`;
-                            opt.innerText = `${p.id} : ${p.name} 様 (${p.disease || '主病名なし'})`;
-                            select.appendChild(opt);
-                        });
-                    })
-                    .withFailureHandler(function(err) {
-                        document.getElementById('patient-select').innerHTML = '<option value="">読み込みエラーが発生しました</option>';
-                    })
-                    .getPatients();
-            } else {
-                const select = document.getElementById('patient-select');
-                select.innerHTML = `
-                    <option value="">-- デモ患者（ローカル検証環境） --</option>
-                    <option value="山田 太郎 様 (ID: 1001)">1001 : 山田 太郎 様</option>
-                    <option value="佐藤 花子 様 (ID: 1002)">1002 : 佐藤 花子 様</option>
-                `;
-            }
-        }
-
-        function tabClick(tabName) {
-            // ここも不細工な独自警告（alert）を避けるために簡易ログ、または次のフェーズで美しくします
-            console.log("Tab clicked: " + tabName);
         }
 
         function switchMonth() {
@@ -467,31 +608,17 @@
             const title = document.getElementById('month-title');
             const boxJul = document.getElementById('container-jul');
             const boxAug = document.getElementById('container-aug');
-
             document.querySelectorAll('.day-cell').forEach(b => b.classList.remove('selected'));
 
             if (currentMonth === 7) {
-                currentMonth = 8;
-                title.innerText = "2026年 8月 (翌月)";
-                btn.innerText = "≪ 当月表示 (7月)";
-                boxJul.style.display = 'none'; 
-                boxAug.style.display = 'block'; 
-                selectedDate = "8月1日";
-                
-                const firstAugCell = boxAug.querySelector('.day-cell:not(.empty)');
-                if (firstAugCell) firstAugCell.classList.add('selected');
+                currentMonth = 8; title.innerText = "2026年 8月 (翌月)"; btn.innerText = "≪ 当月表示 (7月)";
+                boxJul.style.display = 'none'; boxAug.style.display = 'block'; selectedDate = "8月1日";
+                boxAug.querySelector('.day-cell:not(.empty)').classList.add('selected');
             } else {
-                currentMonth = 7;
-                title.innerText = "2026年 7月 (当月)";
-                btn.innerText = "≫ 翌月表示 (8月)";
-                boxJul.style.display = 'block'; 
-                boxAug.style.display = 'none';  
-                selectedDate = "7月1日";
-                
-                const firstJulCell = boxJul.querySelector('.day-cell:not(.empty)');
-                if (firstJulCell) firstJulCell.classList.add('selected');
+                currentMonth = 7; title.innerText = "2026年 7月 (当月)"; btn.innerText = "≫ 翌月表示 (8月)";
+                boxJul.style.display = 'block'; boxAug.style.display = 'none'; selectedDate = "7月1日";
+                boxJul.querySelector('.day-cell:not(.empty)').classList.add('selected');
             }
-            
             document.getElementById('todo-title-label').innerText = "📋 " + selectedDate + " のToDoスケジュール";
             renderTodoList(selectedDate);
         }
@@ -505,7 +632,7 @@
         }
 
         function openReserveModal(event, dateText) {
-            event.stopPropagation(); 
+            event.stopPropagation();
             selectedDate = dateText;
             
             const targetCell = document.getElementById('cell-' + dateText);
@@ -513,11 +640,11 @@
                 document.querySelectorAll('.day-cell').forEach(cell => cell.classList.remove('selected'));
                 targetCell.classList.add('selected');
             }
-
-            document.getElementById('selected-date-label').innerText = "選択した日：" + selectedDate;
+            
+            // ドロップダウンの選択値を同期
+            document.getElementById('date-select').value = selectedDate;
             document.getElementById('todo-title-label').innerText = "📋 " + selectedDate + " のToDoスケジュール";
             renderTodoList(dateText);
-
             document.getElementById('reserve-modal').classList.add('open');
         }
 
@@ -531,11 +658,10 @@
 
         function tryOpenConfirmModal() {
             const patient = document.getElementById('patient-select').value;
-            if (!selectedDept || !selectedTest || !selectedDetail || !patient || !selectedTime) {
-                // ここは項目未選択の警告なので、簡易トーストにするか一旦残す
+            if (!selectedDept || !selectedTest || !selectedDetail || !patient || !selectedTime || !selectedDate) {
+                alert("未入力の項目があります。日付、および項目②〜⑥をすべて選択してください。");
                 return;
             }
-
             const contentArea = document.getElementById('confirm-content-area');
             contentArea.innerHTML = `
                 <div class="confirm-item">📅 <strong>日時:</strong> ${selectedDate} ${selectedTime}</div>
@@ -543,59 +669,43 @@
                 <div class="confirm-item">🏥 <strong>部署:</strong> ${selectedDept}</div>
                 <div class="confirm-item">🔬 <strong>内容:</strong> ${selectedTest} [${selectedDetail}]</div>
             `;
-
             document.getElementById('confirm-modal').classList.add('open');
         }
 
-        function closeConfirmModal() {
-            document.getElementById('confirm-modal').classList.remove('open');
-        }
+        function closeConfirmModal() { document.getElementById('confirm-modal').classList.remove('open'); }
 
-        // 💡 確定ボタン押下時の処理（英語のalertを完全廃止）
         function executeAddTodo() {
             const patient = document.getElementById('patient-select').value;
+            const reservationObj = {
+                date: selectedDate, time: selectedTime, name: patient, dept: selectedDept, test: selectedTest, detail: selectedDetail
+            };
 
-            if (!demoDatabase[selectedDate]) {
-                demoDatabase[selectedDate] = [];
-            }
+            if (!demoDatabase[selectedDate]) demoDatabase[selectedDate] = [];
+            demoDatabase[selectedDate].push(reservationObj);
             
-            demoDatabase[selectedDate].push({
-                time: selectedTime,
-                name: patient,
-                dept: selectedDept,
-                test: selectedTest,
-                detail: selectedDetail
-            });
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.saveReservationData(reservationObj);
+            }
 
             refreshCalendarStyles();
             renderTodoList(selectedDate);
-            
-            // 入力モーダルと確認モーダルを閉じる
             closeConfirmModal();
             closeReserveModal();
-            
-            // 💡 英語のalertの代わりに、自作デザインの成功モーダルを出す
             document.getElementById('success-msg-text').innerText = selectedDate + " のスケジュールに確約データが追加されました。";
             document.getElementById('success-modal').classList.add('open');
         }
 
-        // 💡 成功ポップアップを閉じる
-        function closeSuccessModal() {
-            document.getElementById('success-modal').classList.remove('open');
-        }
+        function closeSuccessModal() { document.getElementById('success-modal').classList.remove('open'); }
 
         function renderTodoList(dateKey) {
             const container = document.getElementById('todo-list');
             container.innerHTML = "";
-
             const list = demoDatabase[dateKey] || [];
             if (list.length === 0) {
                 container.innerHTML = `<div class="no-data">選択された日（${dateKey}）の予定はありません</div>`;
                 return;
             }
-
             list.sort((a, b) => a.time.localeCompare(b.time));
-
             list.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'todo-card';
@@ -614,39 +724,16 @@
             });
         }
 
-        function clickDept(btn, deptName) {
-            document.querySelectorAll('.dept-opt').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            selectedDept = deptName;
-        }
-
+        function clickDept(btn, deptName) { document.querySelectorAll('.dept-opt').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedDept = deptName; }
         function clickTest(btn, code) {
-            document.querySelectorAll('.test-opt').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            selectedTest = btn.innerText;
-
-            document.querySelectorAll('.sub-group').forEach(g => g.style.display = 'none');
-            document.querySelectorAll('.detail-opt').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.test-opt').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedTest = btn.innerText;
+            document.querySelectorAll('.sub-group').forEach(g => g.style.display = 'none'); document.querySelectorAll('.detail-opt').forEach(b => b.classList.remove('active'));
             selectedDetail = "";
-
-            if (code !== 'BONE') {
-                document.getElementById('tree-' + code).style.display = 'block';
-            } else {
-                selectedDetail = "（詳細なし）";
-            }
+            if (code !== 'BONE') document.getElementById('tree-' + code).style.display = 'block';
+            else selectedDetail = "（詳細なし）";
         }
-
-        function clickDetail(btn) {
-            btn.parentElement.querySelectorAll('.detail-opt').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            selectedDetail = btn.innerText;
-        }
-
-        function clickTime(btn) {
-            document.querySelectorAll('.time-opt').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            selectedTime = btn.innerText;
-        }
+        function clickDetail(btn) { btn.parentElement.querySelectorAll('.detail-opt').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedDetail = btn.innerText; }
+        function clickTime(btn) { document.querySelectorAll('.time-opt').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedTime = btn.innerText; }
     </script>
 </body>
 </html>
